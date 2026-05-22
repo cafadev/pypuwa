@@ -468,6 +468,12 @@ class InteractiveSecretManager:
 class DeployOrchestrator:
     """Orchestrates the full deploy flow: sync -> secrets -> pulumi up."""
 
+    VALID_HOOKS = (
+        "pre_sync", "post_sync",
+        "pre_secrets", "post_secrets",
+        "pre_deploy", "post_deploy",
+    )
+
     def __init__(
         self,
         environment_name: str,
@@ -477,6 +483,7 @@ class DeployOrchestrator:
         sync_only: bool = False,
         backup: bool = False,
         runner: str = "pulumi",
+        hooks: Optional[Dict[str, Any]] = None,
     ):
         self.environment_name = environment_name
         self.stack_name = environment_name
@@ -485,10 +492,28 @@ class DeployOrchestrator:
         self.sync_only = sync_only
         self.backup = backup
         self.runner = runner
+        self.hooks = hooks or {}
 
         self.sync_engine = ConfigSyncEngine(environment_name, manager, project_name)
         self.secret_detector = SecretDetector(manager, project_name)
         self.secret_manager = InteractiveSecretManager(environment_name)
+
+    def _run_hook(self, hook_name: str) -> bool:
+        """Run a lifecycle hook. Returns False if hook aborts the pipeline."""
+        hook_fn = self.hooks.get(hook_name)
+        if hook_fn is None:
+            return True
+
+        _print("CYAN", "HOOK", f"Running {hook_name}...")
+        try:
+            result = hook_fn(self.environment_name)
+            if result is False:
+                _print("RED", "HOOK", f"{hook_name} aborted the pipeline")
+                return False
+            return True
+        except Exception as e:
+            _print("RED", "HOOK", f"{hook_name} failed: {e}")
+            return False
 
     def execute(self) -> bool:
         print(f"\n  {Colors.CYAN}pypuwa deploy{Colors.NC}")
@@ -499,17 +524,26 @@ class DeployOrchestrator:
         print()
 
         # Step 1: Sync config
+        if not self._run_hook("pre_sync"):
+            return False
+
         has_changes, changes = self.sync_engine.detect_changes()
         if has_changes:
             if not self.sync_engine.sync(changes, backup=self.backup):
                 return False
 
+        if not self._run_hook("post_sync"):
+            return False
+
         if self.sync_only:
             _print("GREEN", "DEPLOY", "Sync completed (--sync-only)")
             return True
 
-        # Step 2: Detect new secrets
+        # Step 2: Detect and handle secrets
         if not self.dry_run:
+            if not self._run_hook("pre_secrets"):
+                return False
+
             new_source, new_derived = self.secret_detector.find_new_secrets(
                 self.stack_name, self.config_module_name
             )
@@ -519,19 +553,30 @@ class DeployOrchestrator:
             else:
                 _print("GREEN", "SECRETS", "No new secrets detected")
 
-        # Step 3: Offer to update existing secrets
-        if not self.dry_run:
+            # Offer to update existing secrets
             existing = self.secret_detector.get_all_secret_paths(self.stack_name)
             if existing:
                 if not self.secret_manager.offer_secret_updates(sorted(existing)):
                     return False
 
-        # Step 4: Run pulumi
+            if not self._run_hook("post_secrets"):
+                return False
+
+        # Step 3: Deploy
         if self.dry_run:
             _print("GREEN", "DEPLOY", "Dry run completed — no deployment")
             return True
 
-        return self._run_pulumi()
+        if not self._run_hook("pre_deploy"):
+            return False
+
+        success = self._run_pulumi()
+
+        if success:
+            if not self._run_hook("post_deploy"):
+                _print("YELLOW", "HOOK", "post_deploy hook failed (deploy already completed)")
+
+        return success
 
     def _run_pulumi(self) -> bool:
         _print("BLUE", "DEPLOY", "Running Pulumi deployment...")
@@ -591,6 +636,8 @@ def _load_pypuwaconf() -> Optional[Dict[str, Any]]:
         result["project_name"] = module.PROJECT_NAME
     if hasattr(module, "RUNNER"):
         result["runner"] = module.RUNNER
+    if hasattr(module, "HOOKS"):
+        result["hooks"] = module.HOOKS
 
     return result
 
@@ -649,6 +696,7 @@ def main() -> int:
     # CLI flags override pypuwaconf.py values
     project_name = getattr(args, "project_name", None) or conf.get("project_name", "pypuwa")
     runner = getattr(args, "runner", None) or conf.get("runner", "pulumi")
+    hooks = conf.get("hooks", {})
 
     manager = ConfigurationManager(environments=environments)
 
@@ -661,6 +709,7 @@ def main() -> int:
             sync_only=args.sync_only,
             backup=args.backup,
             runner=runner,
+            hooks=hooks,
         )
     elif args.command == "preview":
         orchestrator = DeployOrchestrator(
@@ -669,6 +718,7 @@ def main() -> int:
             project_name=project_name,
             dry_run=True,
             runner=runner,
+            hooks=hooks,
         )
     elif args.command == "sync":
         orchestrator = DeployOrchestrator(
@@ -678,6 +728,7 @@ def main() -> int:
             sync_only=True,
             backup=getattr(args, "backup", False),
             runner=runner,
+            hooks=hooks,
         )
     else:
         parser.print_help()
