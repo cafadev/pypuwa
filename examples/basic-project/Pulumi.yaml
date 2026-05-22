@@ -1,0 +1,6 @@
+name: my-infra
+description: Example infrastructure project using pypuwa
+runtime:
+  name: python
+  options:
+    virtualenv: .venv
