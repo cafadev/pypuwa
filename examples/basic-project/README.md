@@ -1,18 +1,19 @@
 # Example: Basic pypuwa Project
 
-This shows a complete infrastructure project using `pypuwa` to manage
-configuration for a Django API + Celery worker + Redis stack on Azure.
+A complete infrastructure project using `pypuwa` to manage configuration
+for a Django API + Celery worker + Redis stack on Azure.
 
 ## Structure
 
 ```
 .
+├── pypuwaconf.py                   # Project config: environments, hooks, runner
 ├── __main__.py                     # Pulumi entry point
 ├── config/
 │   ├── base/
 │   │   ├── stack.py                # MyStackConfig (extends BaseStackConfig)
 │   │   └── services/
-│   │       ├── api.py              # Database + AppRunner configs
+│   │       ├── api.py              # Database + Compute configs
 │   │       ├── worker.py           # Worker config (shares API's database)
 │   │       └── redis.py            # Cache config
 │   └── environments/
@@ -55,34 +56,51 @@ env_vars = config.services.api.APP_RUNNER.env_dict_with_outputs()
 # No duplication — only override what differs
 ```
 
+### 5. pypuwaconf.py
+```python
+from config.environments.staging import staging_config
+from config.environments.production import production_config
+
+PROJECT_NAME = "my-infra"
+RUNNER = "pulumi"
+
+ENVIRONMENTS = {
+    "staging": staging_config,
+    "production": production_config,
+}
+
+HOOKS = {
+    "pre_deploy": _ensure_azure_tenant,
+}
+```
+
+### 6. Lifecycle Hooks
+```python
+def _ensure_azure_tenant(environment: str) -> bool:
+    """Runs before pulumi up. Return False to abort."""
+    result = subprocess.run(["az", "account", "show", ...])
+    if result.returncode != 0:
+        return False  # Aborts pipeline
+    os.environ["AZURE_TENANT_ID"] = result.stdout.strip()
+    return True
+```
+
 ## Usage
 
 ```bash
 # Install dependencies
 pip install -e .
 
-# Sync config + deploy (interactive secret prompts if new secrets detected)
+# Deploy (runs hooks → sync → secrets → pulumi up)
 pypuwa deploy staging
 pypuwa deploy production
 
-# Preview only (sync config, show changes, no deploy)
+# Preview only (sync + show changes, no deploy)
 pypuwa preview staging
 
-# Sync config to Pulumi YAML only (no deploy, no secret prompts)
+# Sync config to Pulumi YAML only
 pypuwa sync production
 
 # Dry run with backup
 pypuwa deploy staging --dry-run --backup
-
-# Use a custom runner (e.g., uv)
-pypuwa deploy staging --runner "uv run pulumi"
-
-# Set project name for Pulumi config prefixes
-pypuwa deploy staging --project-name my-infra
 ```
-
-### What `pypuwa deploy` does:
-
-1. **Sync** — Generates `Pulumi.<env>.yaml` from Python config, preserving existing encrypted secrets
-2. **Secrets** — Detects new `secret()` fields and prompts you to set values
-3. **Deploy** — Runs `pulumi up` on the selected stack

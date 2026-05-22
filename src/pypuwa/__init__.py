@@ -23,7 +23,7 @@ from pypuwa.config import ConfigResolver, create_config
 from pypuwa.interpolation import InterpolationResolver
 from pypuwa.manager import ConfigurationManager
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     "Secret",

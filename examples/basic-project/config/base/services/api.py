@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import FrozenSet
 
-from pypuwa import BaseDatabaseConfig, BaseAppRunnerConfig, Secret, secret
+from pypuwa import BaseDatabaseConfig, BaseComputeConfig, Secret, secret
 
 
 @dataclass(kw_only=True)
@@ -15,7 +15,7 @@ class MyAPIDatabaseConfig(BaseDatabaseConfig):
 
 
 @dataclass(kw_only=True)
-class MyAPIAppRunnerConfig(BaseAppRunnerConfig):
+class MyAPIAppRunnerConfig(BaseComputeConfig):
     SERVICE_NAME: str = "{stack}-api"
     CPU: str = "1 vCPU"
     MEMORY: str = "2 GB"

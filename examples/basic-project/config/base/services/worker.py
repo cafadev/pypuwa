@@ -3,11 +3,11 @@
 from dataclasses import dataclass, field
 from typing import FrozenSet
 
-from pypuwa import BaseAppRunnerConfig, Secret, secret
+from pypuwa import BaseComputeConfig, Secret, secret
 
 
 @dataclass(kw_only=True)
-class MyWorkerAppRunnerConfig(BaseAppRunnerConfig):
+class MyWorkerAppRunnerConfig(BaseComputeConfig):
     SERVICE_NAME: str = "{stack}-worker"
     CPU: str = "0.5 vCPU"
     MEMORY: str = "1 GB"

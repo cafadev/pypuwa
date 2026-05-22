@@ -7,7 +7,7 @@ Demonstrates how env_dict_with_outputs() feeds directly into container config.
 import pulumi
 import pulumi_azure_native as azure_native
 
-from pypuwa import BaseAppRunnerConfig
+from pypuwa import BaseComputeConfig
 
 
 class ContainerApp:
@@ -15,7 +15,7 @@ class ContainerApp:
 
     def __init__(
         self,
-        config: BaseAppRunnerConfig,
+        config: BaseComputeConfig,
         resource_group_name: str,
         environment_id: str,
         container_image: str,

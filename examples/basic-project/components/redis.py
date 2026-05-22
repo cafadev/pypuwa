@@ -3,13 +3,13 @@
 import pulumi
 import pulumi_azure_native as azure_native
 
-from pypuwa import BaseRedisConfig
+from pypuwa import BaseCacheConfig
 
 
 class RedisCache:
     """Creates an Azure Cache for Redis from config."""
 
-    def __init__(self, config: BaseRedisConfig, resource_group_name: str, location: str):
+    def __init__(self, config: BaseCacheConfig, resource_group_name: str, location: str):
         self.config = config
 
         self.cache = azure_native.cache.Redis(

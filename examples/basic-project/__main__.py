@@ -8,6 +8,7 @@ from config.environments.production import production_config
 from services.api.entrypoint import deploy_api
 from services.worker.entrypoint import deploy_worker
 
+# create_config auto-detects environment from the active Pulumi stack name
 config = create_config(
     environments={"staging": staging_config, "production": production_config}
 )
