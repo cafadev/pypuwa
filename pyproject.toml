@@ -22,7 +22,11 @@ classifiers = [
 ]
 dependencies = [
     "pulumi>=3.0.0,<4.0.0",
+    "pyyaml>=6.0",
 ]
+
+[project.scripts]
+pypuwa = "pypuwa.cli:main"
 
 [project.optional-dependencies]
 dev = [

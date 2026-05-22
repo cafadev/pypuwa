@@ -61,11 +61,28 @@ env_vars = config.services.api.APP_RUNNER.env_dict_with_outputs()
 # Install dependencies
 pip install -e .
 
-# Preview staging
-pulumi stack select staging
-pulumi preview
+# Sync config + deploy (interactive secret prompts if new secrets detected)
+pypuwa deploy staging
+pypuwa deploy production
 
-# Deploy production
-pulumi stack select production
-pulumi up
+# Preview only (sync config, show changes, no deploy)
+pypuwa preview staging
+
+# Sync config to Pulumi YAML only (no deploy, no secret prompts)
+pypuwa sync production
+
+# Dry run with backup
+pypuwa deploy staging --dry-run --backup
+
+# Use a custom runner (e.g., uv)
+pypuwa deploy staging --runner "uv run pulumi"
+
+# Set project name for Pulumi config prefixes
+pypuwa deploy staging --project-name my-infra
 ```
+
+### What `pypuwa deploy` does:
+
+1. **Sync** — Generates `Pulumi.<env>.yaml` from Python config, preserving existing encrypted secrets
+2. **Secrets** — Detects new `secret()` fields and prompts you to set values
+3. **Deploy** — Runs `pulumi up` on the selected stack
