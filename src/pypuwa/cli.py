@@ -572,6 +572,12 @@ def main() -> int:
         parser.print_help()
         return 1
 
+    # Add current directory to Python path so environment configs can import
+    # project-local modules (e.g., "from config.base.stack import ...")
+    cwd = os.getcwd()
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
+
     # Load environments from the current project
     # Users must have config/environments/ in their working directory
     env_dir = Path("config/environments")
