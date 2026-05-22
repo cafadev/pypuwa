@@ -258,8 +258,9 @@ class ConfigSyncEngine:
 class SecretDetector:
     """Detects new secrets in Python config that need values set in Pulumi."""
 
-    def __init__(self, manager: ConfigurationManager):
+    def __init__(self, manager: ConfigurationManager, project_name: str = "pypuwa"):
         self.manager = manager
+        self.project_name = project_name
 
     def find_new_secrets(
         self, stack_name: str, config_module_name: str
@@ -335,7 +336,12 @@ class SecretDetector:
         self, data: Dict[str, Any], result: Set[str], prefix: str = ""
     ) -> None:
         for key, value in data.items():
-            current = f"{prefix}.{key}" if prefix else key
+            # Strip project_name: prefix from keys (e.g., "moxie-link:aws_cloud" -> "aws_cloud")
+            normalized_key = key
+            if key.startswith(f"{self.project_name}:"):
+                normalized_key = key[len(self.project_name) + 1:]
+
+            current = f"{prefix}.{normalized_key}" if prefix else normalized_key
             if isinstance(value, dict):
                 if "secure" in value:
                     result.add(current)
@@ -481,7 +487,7 @@ class DeployOrchestrator:
         self.runner = runner
 
         self.sync_engine = ConfigSyncEngine(environment_name, manager, project_name)
-        self.secret_detector = SecretDetector(manager)
+        self.secret_detector = SecretDetector(manager, project_name)
         self.secret_manager = InteractiveSecretManager(environment_name)
 
     def execute(self) -> bool:
