@@ -357,8 +357,8 @@ class InteractiveSecretManager:
         print()
 
         selected = questionary.checkbox(
-            "Select secrets to set now (space to select, enter to confirm):",
-            choices=[questionary.Choice(title=s, value=s) for s in source_secrets],
+            "Select secrets to set now (space to toggle, enter to confirm):",
+            choices=[questionary.Choice(title=s, value=s, checked=True) for s in source_secrets],
         ).ask()
 
         if selected is None:
