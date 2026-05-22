@@ -118,12 +118,30 @@ class ConfigSyncEngine:
             return False
 
     def _normalize_existing(self, existing: Dict[str, Any]) -> Dict[str, Any]:
-        normalized = {}
+        """Normalize existing YAML config to match Python config structure.
+
+        - Strips project_name: prefix from app config keys
+        - Groups provider keys (aws:*, azure:*, azure-native:*) into a providers dict
+        """
+        PROVIDER_PREFIXES = ("aws:", "azure:", "azure-native:", "gcp:")
+        normalized: Dict[str, Any] = {}
+        providers: Dict[str, Dict[str, Any]] = {}
+
         for key, value in existing.items():
             if key.startswith(f"{self.project_name}:"):
                 normalized[key[len(self.project_name) + 1 :]] = value
+            elif any(key.startswith(p) for p in PROVIDER_PREFIXES):
+                provider_name, config_key = key.split(":", 1)
+                provider_name_normalized = provider_name.replace("-", "_")
+                if provider_name_normalized not in providers:
+                    providers[provider_name_normalized] = {}
+                providers[provider_name_normalized][config_key] = value
             else:
                 normalized[key] = value
+
+        if providers:
+            normalized["providers"] = providers
+
         return normalized
 
     def _compare(self, existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
