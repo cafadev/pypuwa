@@ -11,7 +11,6 @@ Usage:
 """
 
 import argparse
-import getpass
 import json
 import os
 import subprocess
@@ -309,6 +308,11 @@ class SecretDetector:
         except Exception:
             return set()
 
+    def get_all_secret_paths(self, stack_name: str) -> List[str]:
+        """Get all existing encrypted secret paths from the Pulumi YAML."""
+        existing = self._get_existing_secret_paths(stack_name)
+        return sorted(existing)
+
     def _find_encrypted_paths(
         self, data: Dict[str, Any], result: Set[str], prefix: str = ""
     ) -> None:
@@ -322,7 +326,7 @@ class SecretDetector:
 
 
 class InteractiveSecretManager:
-    """Prompts for new secret values and sets them via pulumi config."""
+    """Interactive secret management with arrow-key selection."""
 
     def __init__(self, stack_name: str):
         self.stack_name = stack_name
@@ -330,16 +334,13 @@ class InteractiveSecretManager:
     def handle_new_secrets(
         self, source_secrets: List[str], derived_secrets: List[str]
     ) -> bool:
+        import questionary
+
         if not source_secrets and not derived_secrets:
             return True
 
         print()
         _print("CYAN", "SECRETS", "New secrets detected in Python configuration:")
-
-        if source_secrets:
-            print(f"  {Colors.CYAN}Source secrets{Colors.NC} (need values):")
-            for s in source_secrets:
-                print(f"    - {s}")
 
         if derived_secrets:
             print(f"  {Colors.BLUE}Derived secrets{Colors.NC} (auto-resolved):")
@@ -350,19 +351,55 @@ class InteractiveSecretManager:
             _print("CYAN", "SECRETS", "No source secrets to set — all derived!")
             return True
 
+        print(f"  {Colors.CYAN}Source secrets{Colors.NC} (need values):")
+        for s in source_secrets:
+            print(f"    - {s}")
         print()
-        response = input(
-            f"Set {len(source_secrets)} source secret(s) now? (y/n): "
-        ).strip().lower()
 
-        if response in ("y", "yes"):
-            return self._prompt_secrets(source_secrets)
+        selected = questionary.checkbox(
+            "Select secrets to set now (space to select, enter to confirm):",
+            choices=[questionary.Choice(title=s, value=s) for s in source_secrets],
+        ).ask()
 
-        _print("YELLOW", "SECRETS", "Secrets not set. Set them later with:")
-        _print("YELLOW", "SECRETS", "  pulumi config set --secret --path <key> <value>")
-        return True
+        if selected is None:
+            _print("YELLOW", "SECRETS", "Interrupted")
+            return True
+
+        if not selected:
+            _print("YELLOW", "SECRETS", "No secrets selected. Set them later with:")
+            _print("YELLOW", "SECRETS", "  pulumi config set --secret --path <key> <value>")
+            return True
+
+        return self._prompt_secrets(selected)
+
+    def offer_secret_updates(self, existing_secrets: List[str]) -> bool:
+        """Offer to update existing secret values with arrow-key selection."""
+        import questionary
+
+        if not existing_secrets:
+            return True
+
+        print()
+        should_update = questionary.confirm(
+            "Update any existing secret values?", default=False
+        ).ask()
+
+        if not should_update:
+            return True
+
+        selected = questionary.checkbox(
+            "Select secrets to update (space to select, enter to confirm):",
+            choices=[questionary.Choice(title=s, value=s) for s in existing_secrets],
+        ).ask()
+
+        if selected is None or not selected:
+            return True
+
+        return self._prompt_secrets(selected)
 
     def _prompt_secrets(self, secrets: List[str]) -> bool:
+        import questionary
+
         try:
             subprocess.run(
                 ["pulumi", "stack", "select", self.stack_name],
@@ -371,8 +408,14 @@ class InteractiveSecretManager:
             )
 
             for secret_path in secrets:
-                print()
-                value = getpass.getpass(f"Enter value for {secret_path}: ")
+                value = questionary.password(
+                    f"Enter value for {secret_path}:"
+                ).ask()
+
+                if value is None:
+                    _print("YELLOW", "SECRETS", "Interrupted")
+                    return True
+
                 if value.strip():
                     subprocess.run(
                         [
@@ -448,7 +491,14 @@ class DeployOrchestrator:
             else:
                 _print("GREEN", "SECRETS", "No new secrets detected")
 
-        # Step 3: Run pulumi
+        # Step 3: Offer to update existing secrets
+        if not self.dry_run:
+            existing = self.secret_detector.get_all_secret_paths(self.stack_name)
+            if existing:
+                if not self.secret_manager.offer_secret_updates(sorted(existing)):
+                    return False
+
+        # Step 4: Run pulumi
         if self.dry_run:
             _print("GREEN", "DEPLOY", "Dry run completed — no deployment")
             return True
