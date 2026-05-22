@@ -7,7 +7,7 @@ cloud-specific fields in your project.
 """
 
 from dataclasses import dataclass, field
-from typing import FrozenSet, List, Optional
+from typing import Any, Dict, FrozenSet, List, Optional
 
 from pypuwa.env import EnvironmentVariableMixin
 from pypuwa.secrets import Secret, secret
@@ -94,8 +94,8 @@ class BaseStorageConfig:
     ENCRYPTION: bool = True
     PUBLIC_ACCESS_BLOCK: bool = True
     FORCE_DESTROY: bool = False
-    LIFECYCLE_RULES: Optional[List[dict]] = None
-    CORS_RULES: Optional[List[dict]] = None
+    LIFECYCLE_RULES: Optional[List[Dict[str, Any]]] = None
+    CORS_RULES: Optional[List[Dict[str, Any]]] = None
 
 
 @dataclass(kw_only=True)
