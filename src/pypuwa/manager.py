@@ -47,16 +47,16 @@ class ConfigurationManager:
         self, env_dir: Path, module_prefix: str
     ) -> Dict[str, Any]:
         """Auto-discover environment configs from a directory."""
-        import importlib.util
+        import importlib
+        import sys
 
         configs: Dict[str, Any] = {}
 
         if not env_dir.exists():
             return configs
 
-        # Ensure the project root (parent of config/) is in sys.path
-        # so that environment files can import project-local modules
-        import sys
+        # Ensure the project root is in sys.path so environment files
+        # can import project-local modules (e.g., "from config.base import ...")
         project_root = str(env_dir.resolve().parent.parent)
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
@@ -68,14 +68,7 @@ class ConfigurationManager:
             env_name = env_file.stem
             try:
                 module_name = f"{module_prefix}.{env_name}"
-                spec = importlib.util.spec_from_file_location(
-                    module_name, str(env_file.resolve())
-                )
-                if spec is None or spec.loader is None:
-                    continue
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[module_name] = module
-                spec.loader.exec_module(module)
+                module = importlib.import_module(module_name)
                 config_obj = getattr(module, f"{env_name}_config", None)
                 if config_obj is not None:
                     configs[env_name] = config_obj
