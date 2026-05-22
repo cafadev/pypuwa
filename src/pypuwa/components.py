@@ -32,11 +32,16 @@ class BaseDatabaseConfig:
     INSTANCE_ID: str
     ENGINE: str = "postgres"
     ENGINE_VERSION: str = "17"
+    INSTANCE_TYPE: str = "db.t3.micro"
     PORT: str = "5432"
     ALLOCATED_STORAGE: int = 20
     MULTI_AZ: bool = False
     STORAGE_ENCRYPTION: bool = True
+    SKIP_FINAL_SNAPSHOT: bool = True
     PUBLIC_ACCESS: bool = False
+    FINAL_SNAPSHOT_IDENTIFIER: Optional[str] = None
+    QUEUE_NAME: Optional[str] = None
+    SNAPSHOT_ID: Optional[str] = None
     PASSWORD: Secret = secret()
 
 

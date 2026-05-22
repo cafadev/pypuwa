@@ -1,6 +1,6 @@
 [project]
 name = "pypuwa"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python Pulumi Wrapper - Dataclass-based configuration framework for Pulumi infrastructure as code"
 readme = "README.md"
 license = "MIT"
