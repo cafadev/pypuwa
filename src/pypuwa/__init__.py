@@ -10,33 +10,33 @@ from pypuwa.secrets import Secret, secret
 from pypuwa.env import EnvironmentVariableMixin
 from pypuwa.components import (
     BaseDatabaseConfig,
-    BaseAppRunnerConfig,
-    BaseECRConfig,
+    BaseComputeConfig,
+    BaseContainerRegistryConfig,
     BaseRepositoryConfig,
-    BaseRedisConfig,
+    BaseCacheConfig,
     BaseServiceConfig,
     BaseStorageConfig,
-    BaseECSConfig,
+    BaseContainerTaskConfig,
 )
 from pypuwa.stack import BaseStackConfig, ProviderConfig
 from pypuwa.config import ConfigResolver, create_config
 from pypuwa.interpolation import InterpolationResolver
 from pypuwa.manager import ConfigurationManager
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     "Secret",
     "secret",
     "EnvironmentVariableMixin",
     "BaseDatabaseConfig",
-    "BaseAppRunnerConfig",
-    "BaseECRConfig",
+    "BaseComputeConfig",
+    "BaseContainerRegistryConfig",
     "BaseRepositoryConfig",
-    "BaseRedisConfig",
+    "BaseCacheConfig",
     "BaseServiceConfig",
     "BaseStorageConfig",
-    "BaseECSConfig",
+    "BaseContainerTaskConfig",
     "BaseStackConfig",
     "ProviderConfig",
     "ConfigResolver",

@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from pypuwa.components import BaseAppRunnerConfig, BaseDatabaseConfig
+from pypuwa.components import BaseComputeConfig, BaseDatabaseConfig
 from pypuwa.manager import ConfigurationManager
 from pypuwa.secrets import Secret, secret
 from pypuwa.stack import BaseStackConfig, ProviderConfig

@@ -1,10 +1,10 @@
 """Tests for base component dataclasses."""
 
 from pypuwa.components import (
-    BaseAppRunnerConfig,
+    BaseComputeConfig,
     BaseDatabaseConfig,
-    BaseECRConfig,
-    BaseRedisConfig,
+    BaseContainerRegistryConfig,
+    BaseCacheConfig,
     BaseStorageConfig,
 )
 from pypuwa.secrets import is_secret
@@ -37,9 +37,9 @@ class TestBaseDatabaseConfig:
         assert db.ALLOCATED_STORAGE == 100
 
 
-class TestBaseAppRunnerConfig:
+class TestBaseComputeConfig:
     def test_non_env_fields_excluded(self):
-        app = BaseAppRunnerConfig(SERVICE_NAME="my-service")
+        app = BaseComputeConfig(SERVICE_NAME="my-service")
         env = app.env_dict()
 
         assert "CPU" not in env
@@ -51,7 +51,7 @@ class TestBaseAppRunnerConfig:
         from typing import FrozenSet
 
         @dataclass(kw_only=True)
-        class MyApp(BaseAppRunnerConfig):
+        class MyApp(BaseComputeConfig):
             DEBUG: str = "True"
             INTERNAL_PORT: str = "9000"
             _NON_ENV_FIELDS: FrozenSet[str] = frozenset(["CPU", "MEMORY", "INTERNAL_PORT"])
@@ -63,18 +63,18 @@ class TestBaseAppRunnerConfig:
         assert "INTERNAL_PORT" not in env
 
 
-class TestBaseECRConfig:
+class TestBaseContainerRegistryConfig:
     def test_defaults(self):
-        ecr = BaseECRConfig(REPOSITORY_NAME="my-repo", SERVICE_NAME="my-service")
-        assert ecr.REMOTE_IMAGE_TAG == "latest"
+        registry = BaseContainerRegistryConfig(REPOSITORY_NAME="my-repo", SERVICE_NAME="my-service")
+        assert registry.REMOTE_IMAGE_TAG == "latest"
 
 
-class TestBaseRedisConfig:
+class TestBaseCacheConfig:
     def test_defaults(self):
-        redis = BaseRedisConfig(CLUSTER_ID="my-cache")
-        assert redis.PORT == 6379
-        assert redis.ENGINE_VERSION == "7.0"
-        assert redis.AUTH_TOKEN is None
+        cache = BaseCacheConfig(CLUSTER_ID="my-cache")
+        assert cache.PORT == 6379
+        assert cache.ENGINE_VERSION == "7.0"
+        assert cache.AUTH_TOKEN is None
 
 
 class TestBaseStorageConfig:

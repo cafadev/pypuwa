@@ -32,23 +32,21 @@ class BaseDatabaseConfig:
     INSTANCE_ID: str
     ENGINE: str = "postgres"
     ENGINE_VERSION: str = "17"
-    INSTANCE_TYPE: str = "db.t3.micro"
     PORT: str = "5432"
     ALLOCATED_STORAGE: int = 20
     MULTI_AZ: bool = False
     STORAGE_ENCRYPTION: bool = True
-    SKIP_FINAL_SNAPSHOT: bool = True
     PUBLIC_ACCESS: bool = False
-    FINAL_SNAPSHOT_IDENTIFIER: Optional[str] = None
-    QUEUE_NAME: Optional[str] = None
-    SNAPSHOT_ID: Optional[str] = None
     PASSWORD: Secret = secret()
 
 
 @dataclass(kw_only=True)
-class BaseAppRunnerConfig(EnvironmentVariableMixin):
+class BaseComputeConfig(EnvironmentVariableMixin):
     """
     Generic compute/application configuration.
+
+    Covers any containerized or serverless compute: AWS App Runner,
+    Azure Container Apps, GCP Cloud Run, ECS Fargate, etc.
 
     Fields in _NON_ENV_FIELDS are excluded from env_dict() output,
     since they're infrastructure settings, not application env vars.
@@ -62,8 +60,8 @@ class BaseAppRunnerConfig(EnvironmentVariableMixin):
 
 
 @dataclass(kw_only=True)
-class BaseECRConfig:
-    """Generic container registry configuration."""
+class BaseContainerRegistryConfig:
+    """Generic container registry configuration (ECR, ACR, GCR, etc.)."""
     REPOSITORY_NAME: str
     SERVICE_NAME: str
     REMOTE_IMAGE_TAG: Optional[str] = "latest"
@@ -78,14 +76,11 @@ class BaseRepositoryConfig:
 
 
 @dataclass(kw_only=True)
-class BaseRedisConfig:
-    """Generic Redis/cache configuration."""
+class BaseCacheConfig:
+    """Generic cache configuration (ElastiCache, Azure Cache for Redis, Memorystore, etc.)."""
     CLUSTER_ID: str
-    NODE_TYPE: str = "cache.t3.micro"
-    NUM_CACHE_NODES: int = 1
     ENGINE_VERSION: str = "7.0"
     PORT: int = 6379
-    PARAMETER_GROUP_FAMILY: str = "redis7"
     SNAPSHOT_RETENTION_LIMIT: int = 0
     MAINTENANCE_WINDOW: str = "sun:05:00-sun:06:00"
     AUTH_TOKEN: Optional[Secret] = None
@@ -93,7 +88,7 @@ class BaseRedisConfig:
 
 @dataclass(kw_only=True)
 class BaseStorageConfig:
-    """Generic object storage configuration."""
+    """Generic object storage configuration (S3, Azure Blob, GCS, etc.)."""
     BUCKET_NAME: str
     VERSIONING: bool = False
     ENCRYPTION: bool = True
@@ -104,8 +99,8 @@ class BaseStorageConfig:
 
 
 @dataclass(kw_only=True)
-class BaseECSConfig:
-    """Generic container orchestration task configuration."""
+class BaseContainerTaskConfig:
+    """Generic container task/job configuration (ECS tasks, Cloud Run Jobs, Azure Container Instances, etc.)."""
     CLUSTER_NAME: str
     SERVICE_NAME: str
     TASK_FAMILY: str
