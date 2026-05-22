@@ -380,11 +380,15 @@ class InteractiveSecretManager:
             return True
 
         print()
-        should_update = questionary.confirm(
-            "Update any existing secret values?", default=False
+        action = questionary.select(
+            "Would you like to update any existing secret values?",
+            choices=[
+                questionary.Choice(title="No, continue to deploy", value="no"),
+                questionary.Choice(title="Yes, select secrets to update", value="yes"),
+            ],
         ).ask()
 
-        if not should_update:
+        if action is None or action == "no":
             return True
 
         selected = questionary.checkbox(
