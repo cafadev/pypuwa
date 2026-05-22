@@ -533,6 +533,44 @@ def _print(color: str, tag: str, message: str) -> None:
     print(f"{c}[{tag}]{Colors.NC} {message}")
 
 
+def _load_pypuwaconf() -> Optional[Dict[str, Any]]:
+    """
+    Load pypuwaconf.py from the current directory.
+
+    Expected contents:
+        ENVIRONMENTS = {"staging": staging_config, "production": production_config}
+        PROJECT_NAME = "my-project"  # optional, defaults to "pypuwa"
+        RUNNER = "uv run pulumi"     # optional, defaults to "pulumi"
+    """
+    import importlib.util
+
+    conf_path = Path("pypuwaconf.py")
+    if not conf_path.exists():
+        return None
+
+    # Ensure cwd is in sys.path so pypuwaconf.py can import project modules
+    cwd = os.getcwd()
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
+
+    spec = importlib.util.spec_from_file_location("pypuwaconf", str(conf_path.resolve()))
+    if spec is None or spec.loader is None:
+        return None
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    result: Dict[str, Any] = {}
+    if hasattr(module, "ENVIRONMENTS"):
+        result["environments"] = module.ENVIRONMENTS
+    if hasattr(module, "PROJECT_NAME"):
+        result["project_name"] = module.PROJECT_NAME
+    if hasattr(module, "RUNNER"):
+        result["runner"] = module.RUNNER
+
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="pypuwa",
@@ -548,15 +586,15 @@ def main() -> int:
     deploy_parser.add_argument("--dry-run", action="store_true", help="Sync config without deploying")
     deploy_parser.add_argument("--sync-only", action="store_true", help="Only sync config, skip secrets and deploy")
     deploy_parser.add_argument("--backup", action="store_true", help="Backup existing Pulumi YAML before sync")
-    deploy_parser.add_argument("--project-name", default="pypuwa", help="Pulumi project name for config prefixes")
-    deploy_parser.add_argument("--runner", default="pulumi", help="Command to run Pulumi (e.g., 'pulumi', 'uv run pulumi')")
+    deploy_parser.add_argument("--project-name", help="Override project name from pypuwaconf.py")
+    deploy_parser.add_argument("--runner", help="Override runner from pypuwaconf.py")
 
     # preview (alias for deploy --dry-run)
     preview_parser = subparsers.add_parser(
         "preview", help="Sync config and show what would change (no deploy)"
     )
     preview_parser.add_argument("environment", help="Environment name")
-    preview_parser.add_argument("--project-name", default="pypuwa")
+    preview_parser.add_argument("--project-name", help="Override project name")
 
     # sync (alias for deploy --sync-only)
     sync_parser = subparsers.add_parser(
@@ -564,7 +602,7 @@ def main() -> int:
     )
     sync_parser.add_argument("environment", help="Environment name")
     sync_parser.add_argument("--backup", action="store_true")
-    sync_parser.add_argument("--project-name", default="pypuwa")
+    sync_parser.add_argument("--project-name", help="Override project name")
 
     args = parser.parse_args()
 
@@ -572,30 +610,23 @@ def main() -> int:
         parser.print_help()
         return 1
 
-    # Add current directory to Python path so environment configs can import
-    # project-local modules (e.g., "from config.base.stack import ...")
-    cwd = os.getcwd()
-    if cwd not in sys.path:
-        sys.path.insert(0, cwd)
-
-    # Load environments from the current project
-    # Users must have config/environments/ in their working directory
-    env_dir = Path("config/environments")
-    if not env_dir.exists():
-        _print("RED", "CLI", f"Directory '{env_dir}' not found in current directory")
-        _print("RED", "CLI", "Run pypuwa from your infrastructure project root")
+    # Load project configuration from pypuwaconf.py
+    conf = _load_pypuwaconf()
+    if conf is None:
+        _print("RED", "CLI", "pypuwaconf.py not found in current directory")
+        _print("RED", "CLI", "Create a pypuwaconf.py with ENVIRONMENTS, PROJECT_NAME, and RUNNER")
         return 1
 
-    manager = ConfigurationManager(
-        environments_dir=env_dir,
-        environments_module_prefix="config.environments",
-    )
-
-    if not manager.environments:
-        _print("RED", "CLI", "No environments found in config/environments/")
+    environments = conf.get("environments", {})
+    if not environments:
+        _print("RED", "CLI", "ENVIRONMENTS dict is empty in pypuwaconf.py")
         return 1
 
-    project_name = getattr(args, "project_name", "pypuwa")
+    # CLI flags override pypuwaconf.py values
+    project_name = getattr(args, "project_name", None) or conf.get("project_name", "pypuwa")
+    runner = getattr(args, "runner", None) or conf.get("runner", "pulumi")
+
+    manager = ConfigurationManager(environments=environments)
 
     if args.command == "deploy":
         orchestrator = DeployOrchestrator(
@@ -605,7 +636,7 @@ def main() -> int:
             dry_run=args.dry_run,
             sync_only=args.sync_only,
             backup=args.backup,
-            runner=args.runner,
+            runner=runner,
         )
     elif args.command == "preview":
         orchestrator = DeployOrchestrator(
@@ -613,6 +644,7 @@ def main() -> int:
             manager=manager,
             project_name=project_name,
             dry_run=True,
+            runner=runner,
         )
     elif args.command == "sync":
         orchestrator = DeployOrchestrator(
@@ -621,6 +653,7 @@ def main() -> int:
             project_name=project_name,
             sync_only=True,
             backup=getattr(args, "backup", False),
+            runner=runner,
         )
     else:
         parser.print_help()
